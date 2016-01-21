@@ -23,7 +23,9 @@ Here, we ignore such cases.
 자원 관리 규칙 요약
 >Resource management rule summary:
 
-* R.1 : 자원 핸들과 RAII(자원 획득시 초기화)를 사용해서 자동으로 리소스를 관리해라.  
+* R.1: 자원 핸들과 RAII(자원 획득시 초기화)를 사용해서 자동으로 리소스를 관리해라.
+* R.2: 인터페이스 안에서 각각의 오브젝트를 나타내기 위해서는 raw pointers 사용해라. 
+* R.3: A raw pointer (a `T*`) is non-owning
 >
 
 * [R.1: Manage resources automatically using resource handles and RAII (resource acquisition is initialization)](#Rr-raii)
@@ -173,7 +175,43 @@ Further, if any of the code marked `...` throws an exception, then `x` is leaked
 >**See also**: [RAII](Rr-raii).
 
 <a name ="Rr-use-ptr"></a>
-### R.2: In interfaces, use raw pointers to denote individual objects (only)
+### R.2: 인터페이스에서 각각의 오브젝트를 나타내기 위해서는 raw pointers 사용해라. (only)
+
+**근거**: 배열은 하나의 컨테이너 타입으로 가장 잘 표현된다. (예를들어, `vector` (owning)) or an `array_view` (non-owning).
+저런 컨테이너들과 뷰들은 범위체크를 하기 위한 충분한 정보를 들고 있다.
+ 
+**잘못된 예**:
+
+	void f(int* p, int n)	// n 은 p[] 안에 요소들의 개수이다.
+	{
+		// ...
+		p[2] = 7;	// 잘못된 예: raw pointer 배열인자.
+		// ...
+	}
+
+컴파일러는 주석을 읽지 못한다, 그래서 다른 코드를 읽지 않는 이상 `p`가 실제로 `n`의 요소들을 가리키고 있는지 알 수 없다.
+대신 `array_view` 사용해라.
+
+**예**:
+
+	void g(int* p, int fmt)	// print *p using format #fmt
+	{
+		// ... *p 와 p[0] 만 사용한다 ...
+	}
+	
+**예외 사항**: C-style 문자열들은 널 문자를 포함하는 하나의 포인터로 전달되어진다.
+ 저 컨벤션을 필요로하는 것을 나타내기 위해서는 `char*` 보다는 `zstring`를 사용해라.
+
+**참고 사항**: 현재 많이 사용되어지고 있는 방법들 중에 하나의 요소를 가리키는 포인터들을 참조자로 사용 할 수 있다. 
+하지만 `nullptr`가 가능한 값인 곳에서는 참조자로 대체하지 못 할지도 모른다.
+
+**시행하기**:
+
+* 포인터 연산은(`++`를 포함하여) 컨테이너, 뷰, 또는 이터레이터에 포함되지 않는다.
+이 규칙은 만약 오래된 코드 베이스에 적용되어 진다면 수 많은 false positive를 만들어 낼 수도 있다.
+* 배열 이름들은 단순한 포인터로 전달된다.
+
+> ### R.2: In interfaces, use raw pointers to denote individual objects (only)
 
 **Reason**: Arrays are best represented by a container type (e.g., `vector` (owning)) or an `array_view` (non-owning).
 Such containers and views hold sufficient information to do range checking.
@@ -190,26 +228,24 @@ Such containers and views hold sufficient information to do range checking.
 The compiler does not read comments, and without reading other code you do not know whether `p` really points to `n` elements.
 Use an `array_view` instead.
 
-**Example**:
+>**Example**:
 
 	void g(int* p, int fmt)	// print *p using format #fmt
 	{
 		// ... uses *p and p[0] only ...
 	}
 	
-**Exception**: C-style strings are passed as single pointers to a zero-terminated sequence of characters.
-Use `zstring` rather than `char*` to indicate that you rely on that convention.
+>**Exception**: C-style strings are passed as single pointers to a zero-terminated sequence of characters.
+>Use `zstring` rather than `char*` to indicate that you rely on that convention.
 
-**Note**: Many current uses of pointers to a single element could be references.
-However, where `nullptr` is a possible value, a reference may not be an reasonable alternative.
+>**Note**: Many current uses of pointers to a single element could be references.
+>However, where `nullptr` is a possible value, a reference may not be an reasonable alternative.
 
-**Enforcement**:
+>**Enforcement**:
 
-* Flag pointer arithmetic (including `++`) on a pointer that is not part of a container, view, or iterator.
+>* Flag pointer arithmetic (including `++`) on a pointer that is not part of a container, view, or iterator.
 This rule would generate a huge number of false positives if applied to an older code base.
-* Flag array names passed as simple pointers
-
-
+>* Flag array names passed as simple pointers
 
 <a name="Rr-ptr"></a>
 ### R.3: A raw pointer (a `T*`) is non-owning
